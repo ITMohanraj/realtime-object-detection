@@ -2,13 +2,21 @@
 import cv2
 import numpy as np
 import config
-import torch
 from config import YOLO_CFG, YOLO_WEIGHTS, COCO_NAMES, INPUT_SIZE, MODEL_NAME
+
+try:
+    import torch
+    HAS_TORCH = True
+except ImportError:
+    HAS_TORCH = False
 
 class ObjectDetector:
     def __init__(self):
         """Initialize YOLO object detector"""
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        if HAS_TORCH:
+            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        else:
+            self.device = 'cpu'
         
         # Check if using modern Ultralytics YOLO models (v8, v11, etc.)
         is_ultralytics = (
@@ -18,6 +26,8 @@ class ObjectDetector:
         )
         
         if is_ultralytics:
+            if not HAS_TORCH:
+                raise RuntimeError("PyTorch (torch) is not installed. Cannot load Ultralytics YOLO model.")
             try:
                 from ultralytics import YOLO
                 model_file = config.MODEL_NAME
@@ -28,6 +38,8 @@ class ObjectDetector:
             except Exception as e:
                 raise RuntimeError(f"Failed to load Ultralytics YOLO model: {e}")
         elif MODEL_NAME.startswith("yolov5"):
+            if not HAS_TORCH:
+                raise RuntimeError("PyTorch (torch) is not installed. Cannot load YOLOv5 model.")
             try:
                 # Load Ultralytics YOLOv5 model (PyTorch Hub fallback)
                 self.model = torch.hub.load('ultralytics/yolov5', MODEL_NAME, pretrained=True)
