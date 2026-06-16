@@ -49,11 +49,11 @@ To run the application in a local container (useful to match production behavior
 ### Option A: Using Raw Docker Commands
 1. **Build the Image:**
    ```bash
-   docker build -t vision-assistant .
+   docker build -t realtime-object-detection .
    ```
 2. **Run the Container:**
    ```bash
-   docker run -d -p 10000:10000 --name vision-assistant-server vision-assistant
+   docker run -d -p 10000:10000 --name realtime-object-detection-server realtime-object-detection
    ```
 3. **Open Browser:**
    Go to [http://localhost:10000](http://localhost:10000).

@@ -3,7 +3,7 @@
 
 services:
   - type: web
-    name: vision-assistant
+    name: realtime-object-detection
     env: docker
     plan: free
     region: oregon # Default robust region
