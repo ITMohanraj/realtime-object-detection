@@ -39,7 +39,31 @@ def download_file(url, filename):
         if parent_dir and not os.path.exists(parent_dir):
             os.makedirs(parent_dir)
             
-        urllib.request.urlretrieve(url, filename, reporthook)
+        # Add User-Agent header to prevent 403 Forbidden errors on hosts like pjreddie.com
+        req = urllib.request.Request(
+            url,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+            }
+        )
+        
+        with urllib.request.urlopen(req) as response:
+            totalsize = int(response.headers.get('content-length', 0))
+            blocksize = 1024 * 1024  # 1MB blocks
+            readsofar = 0
+            
+            with open(filename, 'wb') as f:
+                while True:
+                    block = response.read(blocksize)
+                    if not block:
+                        break
+                    f.write(block)
+                    readsofar += len(block)
+                    
+                    # Update progress hook
+                    # blocknum = readsofar // blocksize
+                    reporthook(readsofar // blocksize, blocksize, totalsize)
+                    
         print(f"\nSuccessfully downloaded '{filename}'.")
         return True
     except Exception as e:
