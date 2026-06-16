@@ -4,6 +4,7 @@ import os
 
 # YOLO Configuration
 MODEL_TYPE = os.environ.get("MODEL_TYPE", "yolov3-tiny").lower()
+MODEL_NAME = os.environ.get("MODEL_NAME", "yolov5s")
 
 if MODEL_TYPE == "yolov3":
     YOLO_CFG = os.environ.get("YOLO_CFG", "yolov3.cfg")
@@ -15,9 +16,11 @@ else:
 COCO_NAMES = os.environ.get("COCO_NAMES", "coco.names")
 
 # Model Settings
-INPUT_SIZE = (320, 320)
-CONFIDENCE_THRESHOLD = float(os.environ.get("CONFIDENCE_THRESHOLD", 0.5))
-NMS_THRESHOLD = float(os.environ.get("NMS_THRESHOLD", 0.4))
+INPUT_SIZE = (416, 416)
+CONFIDENCE_THRESHOLD = float(os.environ.get("CONFIDENCE_THRESHOLD", 0.35))
+NMS_THRESHOLD = float(os.environ.get("NMS_THRESHOLD", 0.45))
+ENABLE_PREPROCESS = os.getenv('ENABLE_PREPROCESS', 'false').lower() == 'true'
+API_KEY = os.getenv('API_KEY', '')
 
 # Color Detection HSV Ranges
 COLOR_RANGES = {

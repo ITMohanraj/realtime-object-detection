@@ -19,6 +19,7 @@ from collections import defaultdict
 
 # Import local modules
 import config
+import torch
 from object_detect import ObjectDetector
 from color_detector import ColorDetector
 from scene_descriptor import SceneDescriptor
@@ -69,6 +70,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+latest_metrics = {}
+
 # Initialize AI Engine Models (lazy loaded or preloaded)
 try:
     logger.info(f"Loading YOLO model using: CFG={config.YOLO_CFG}, WEIGHTS={config.YOLO_WEIGHTS}")
@@ -79,7 +82,7 @@ try:
     logger.info("Successfully loaded all model components and TTS engine.")
 except Exception as e:
     logger.error(f"Critical error loading models: {e}")
-    # We do not crash the script, allowing health checks to run and reporting errors over HTTP
+# We do not crash the script, allowing health checks to run and reporting errors over HTTP
 
 @app.get("/", response_class=HTMLResponse)
 async def get_index():
@@ -211,6 +214,15 @@ async def detect_objects(
         
         logger.info(f"Processed image in {inference_time_ms}ms. Detected {len(detections_list)} objects. Description: '{description}'")
         
+        # Store metrics for debugging endpoint
+        latest_metrics.update({
+            "inference_time_ms": inference_time_ms,
+            "model_used": config.MODEL_TYPE,
+            "image_width": width,
+            "image_height": height,
+            "num_detections": len(detections_list),
+            "average_confidence": round(sum([d["confidence"] for d in detections_list]) / max(len(detections_list), 1), 3)
+        })
         return {
             "success": True,
             "description": description,
@@ -220,7 +232,9 @@ async def detect_objects(
                 "inference_time_ms": inference_time_ms,
                 "model_used": config.MODEL_TYPE,
                 "image_width": width,
-                "image_height": height
+                "image_height": height,
+                "num_detections": len(detections_list),
+                "average_confidence": round(sum([d["confidence"] for d in detections_list]) / max(len(detections_list), 1), 3)
             }
         }
         
@@ -229,6 +243,15 @@ async def detect_objects(
     except Exception as e:
         logger.error(f"Inference pipeline crash: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error running inference.")
+
+@app.get("/debug/stats")
+async def debug_stats(api_key: str = Query(None, description="API key for auth")):
+    # Enforce API key if set
+    if config.API_KEY and api_key != config.API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    if not latest_metrics:
+        return {"msg": "No metrics available yet."}
+    return latest_metrics
 
 if __name__ == "__main__":
     import uvicorn

@@ -6,16 +6,44 @@ services:
     name: realtime-object-detection
     env: docker
     plan: free
-    region: oregon # Default robust region
+    region: oregon
     branch: main
     numInstances: 1
     healthCheckPath: /api/health
     envVars:
-      - key: MODEL_TYPE
-        value: yolov3-tiny
+      - key: MODEL_NAME
+        value: yolov5s
       - key: DOWNLOAD_FULL_YOLO
         value: "false"
       - key: CONFIDENCE_THRESHOLD
-        value: "0.5"
+        value: "0.35"
       - key: NMS_THRESHOLD
-        value: "0.4"
+        value: "0.45"
+      - key: ENABLE_PREPROCESS
+        value: "false"
+
+# docker-compose.yml
+# Multi-container orchestrator configuration for local testing
+
+version: '3.8'
+
+services:
+  vision-assistant:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vision-assistant-server
+    ports:
+      - "10000:10000"
+    environment:
+      - MODEL_NAME=yolov5s
+      - DOWNLOAD_FULL_YOLO=false
+      - CONFIDENCE_THRESHOLD=0.5
+      - NMS_THRESHOLD=0.4
+    restart: unless-stopped
+    volumes:
+      # Optional: mount cache for weights to prevent re-downloads when rebuilding
+      - weights-cache:/app/weights_cache
+
+volumes:
+  weights-cache:
