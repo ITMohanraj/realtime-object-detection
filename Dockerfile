@@ -23,7 +23,9 @@ COPY requirements.txt .
 
 # Install dependencies
 RUN pip install --no-cache-dir -U pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt && \
+    pip uninstall -y opencv-python opencv-python-headless && \
+    pip install --no-cache-dir opencv-python-headless
 
 # Copy the rest of the application codebase
 COPY . .
