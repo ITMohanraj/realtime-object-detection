@@ -19,7 +19,6 @@ from collections import defaultdict
 
 # Import local modules
 import config
-import torch
 from object_detect import ObjectDetector
 from color_detector import ColorDetector
 from scene_descriptor import SceneDescriptor
@@ -35,22 +34,24 @@ logger = logging.getLogger("VisionAssistant")
 
 # Validate weights and config files are present
 def verify_model_files():
-    cfg_exists = os.path.exists(config.YOLO_CFG)
-    weights_exists = os.path.exists(config.YOLO_WEIGHTS)
-    coco_exists = os.path.exists(config.COCO_NAMES)
-    
-    if not (cfg_exists and weights_exists and coco_exists):
-        logger.warning(
-            f"Missing YOLO model files. CFG: {config.YOLO_CFG} ({cfg_exists}), "
-            f"WEIGHTS: {config.YOLO_WEIGHTS} ({weights_exists}), "
-            f"COCO: {config.COCO_NAMES} ({coco_exists}). "
-            "Attempting to download files..."
-        )
-        try:
-            from download_weights import main as download_main
-            download_main()
-        except Exception as e:
-            logger.error(f"Automatic weight download failed: {e}")
+    is_legacy = config.MODEL_TYPE in ["yolov3", "yolov3-tiny"]
+    if is_legacy:
+        cfg_exists = os.path.exists(config.YOLO_CFG)
+        weights_exists = os.path.exists(config.YOLO_WEIGHTS)
+        coco_exists = os.path.exists(config.COCO_NAMES)
+        
+        if not (cfg_exists and weights_exists and coco_exists):
+            logger.warning(
+                f"Missing YOLO model files. CFG: {config.YOLO_CFG} ({cfg_exists}), "
+                f"WEIGHTS: {config.YOLO_WEIGHTS} ({weights_exists}), "
+                f"COCO: {config.COCO_NAMES} ({coco_exists}). "
+                "Attempting to download files..."
+            )
+            try:
+                from download_weights import main as download_main
+                download_main()
+            except Exception as e:
+                logger.error(f"Automatic weight download failed: {e}")
 
 verify_model_files()
 
@@ -103,8 +104,12 @@ async def get_index():
 async def health_check():
     """Service health and model metadata check"""
     try:
-        # Verify model loading state
-        model_loaded = 'detector' in globals() and detector.net is not None
+        # Verify model loading state (legacy net or modern model)
+        detector_obj = globals().get('detector')
+        model_loaded = detector_obj is not None and (
+            (hasattr(detector_obj, 'net') and detector_obj.net is not None) or
+            (hasattr(detector_obj, 'model') and detector_obj.model is not None)
+        )
         status = "healthy" if model_loaded else "degraded"
         
         return {
@@ -145,7 +150,12 @@ async def detect_objects(
         raise HTTPException(status_code=400, detail="Uploaded file must be an image.")
     
     # Check if models were loaded
-    if 'detector' not in globals() or detector.net is None:
+    detector_obj = globals().get('detector')
+    model_loaded = detector_obj is not None and (
+        (hasattr(detector_obj, 'net') and detector_obj.net is not None) or
+        (hasattr(detector_obj, 'model') and detector_obj.model is not None)
+    )
+    if not model_loaded:
         logger.error("Detections requested but model components are not loaded.")
         raise HTTPException(status_code=503, detail="Detection service is currently unavailable (model loading failed).")
         

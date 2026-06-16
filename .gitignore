@@ -1,6 +1,7 @@
 # .gitignore
 # Ignore bulky YOLO weights (downloaded dynamically during build)
 *.weights
+*.pt
 
 # Python cache & build files
 __pycache__/

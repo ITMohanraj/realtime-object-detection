@@ -1,17 +1,20 @@
 # config.py
-import numpy as np
 import os
 
 # YOLO Configuration
-MODEL_TYPE = os.environ.get("MODEL_TYPE", "yolov3-tiny").lower()
-MODEL_NAME = os.environ.get("MODEL_NAME", "yolov5s")
+MODEL_TYPE = os.environ.get("MODEL_TYPE", "yolov8").lower()
+MODEL_NAME = os.environ.get("MODEL_NAME", "yolov8s")
 
 if MODEL_TYPE == "yolov3":
     YOLO_CFG = os.environ.get("YOLO_CFG", "yolov3.cfg")
     YOLO_WEIGHTS = os.environ.get("YOLO_WEIGHTS", "yolov3.weights")
-else:
+elif MODEL_TYPE == "yolov3-tiny":
     YOLO_CFG = os.environ.get("YOLO_CFG", "yolov3-tiny.cfg")
     YOLO_WEIGHTS = os.environ.get("YOLO_WEIGHTS", "yolov3-tiny.weights")
+else:
+    # Use empty/None config paths for non-Darknet models
+    YOLO_CFG = os.environ.get("YOLO_CFG", "")
+    YOLO_WEIGHTS = os.environ.get("YOLO_WEIGHTS", "")
 
 COCO_NAMES = os.environ.get("COCO_NAMES", "coco.names")
 
