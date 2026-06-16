@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>👁️ Vision Assistant - Object Detection & Voice Announcements</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-gradient-start: #0B0F19;
+            --bg-gradient-end: #111827;
+            --card-bg: rgba(17, 24, 39, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #F3F4F6;
+            --text-secondary: #9CA3AF;
+            --accent-blue: #3B82F6;
+            --accent-blue-glow: rgba(59, 130, 246, 0.4);
+            --accent-green: #10B981;
+            --accent-green-glow: rgba(16, 185, 129, 0.4);
+            --accent-purple: #8B5CF6;
+            --accent-purple-glow: rgba(139, 92, 246, 0.4);
+            --danger: #EF4444;
+            --font-headings: 'Outfit', sans-serif;
+            --font-body: 'Inter', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            line-height: 1.5;
+        }
+
+        /* Semantic Header */
+        header {
+            width: 100%;
+            padding: 1.5rem 2rem;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 10;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header-title h1 {
+            font-family: var(--font-headings);
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            background: linear-gradient(to right, #3B82F6, #10B981);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .eye-logo {
+            font-size: 1.75rem;
+            animation: pulse 2.5s infinite ease-in-out;
+        }
+
+        .model-status-pill {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid var(--accent-green);
+            color: var(--accent-green);
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            text-transform: uppercase;
+        }
+
+        .model-status-pill .indicator-dot {
+            width: 6px;
+            height: 6px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px var(--accent-green);
+        }
+
+        /* Main Container Grid */
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 2rem;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Cards Style (Glassmorphism) */
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            backdrop-filter: blur(12px);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Left Column Content */
+        .camera-panel {
+            min-height: 400px;
+        }
+
+        .viewport-wrapper {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            background-color: #05070A;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 4px 20px rgba(0, 0, 0, 0.6);
+        }
+
+        #camera-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror effect for natural webcam use */
+        }
+
+        #camera-video.back-camera {
+            transform: scaleX(1); /* Do not mirror back camera */
+        }
+
+        #detection-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* Scanning beam animation when waiting for API */
+        .scanning-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(59, 130, 246, 0.05), rgba(59, 130, 246, 0.15));
+            z-index: 3;
+            display: none;
+            pointer-events: none;
+        }
+
+        .scanning-beam {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(to right, transparent, var(--accent-blue), transparent);
+            box-shadow: 0 0 12px 2px var(--accent-blue);
+            animation: scan 2s linear infinite;
+        }
+
+        /* Camera Controls */
+        .controls-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn {
+            font-family: var(--font-headings);
+            font-weight: 600;
+            font-size: 0.95rem;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+            outline: none;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-blue);
+            color: #ffffff;
+            box-shadow: 0 4px 14px var(--accent-blue-glow);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background-color: #2563EB;
+            box-shadow: 0 6px 20px var(--accent-blue-glow);
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background-color: var(--accent-green);
+            color: #ffffff;
+            box-shadow: 0 4px 14px var(--accent-green-glow);
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background-color: #059669;
+            box-shadow: 0 6px 20px var(--accent-green-glow);
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background-color: var(--danger);
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background-color: #DC2626;
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background-color: rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* File Uploader styling */
+        .uploader-zone {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed rgba(255, 255, 255, 0.15);
+            border-radius: 0.75rem;
+            padding: 3rem 1.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+            height: 100%;
+        }
+
+        .uploader-zone:hover {
+            border-color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.02);
+        }
+
+        .uploader-icon {
+            font-size: 3rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            transition: transform 0.2s ease;
+        }
+
+        .uploader-zone:hover .uploader-icon {
+            transform: translateY(-4px);
+            color: var(--accent-blue);
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        /* Right Column Content */
+        .results-panel {
+            gap: 1.5rem;
+        }
+
+        /* Announced Scene Description Card */
+        .announcement-box {
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            box-shadow: inset 0 2px 4px rgba(59, 130, 246, 0.05);
+        }
+
+        .announcement-title {
+            font-family: var(--font-headings);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--accent-blue);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        #description-text {
+            font-size: 1.2rem;
+            font-weight: 500;
+            line-height: 1.6;
+            min-height: 50px;
+        }
+
+        .description-empty {
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        /* Detected Objects Chip List */
+        .detections-title {
+            font-family: var(--font-headings);
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .detection-counter {
+            font-size: 0.75rem;
+            background: rgba(255, 255, 255, 0.08);
+            padding: 0.15rem 0.5rem;
+            border-radius: 0.5rem;
+            color: var(--text-secondary);
+        }
+
+        .chips-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            min-height: 40px;
+        }
+
+        .chip {
+            padding: 0.4rem 0.8rem;
+            border-radius: 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.04);
+            transition: all 0.2s ease;
+        }
+
+        .chip:hover {
+            transform: scale(1.03);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .chip-color-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            box-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
+        }
+
+        /* Accessibility Panel */
+        .accessibility-panel h3 {
+            font-family: var(--font-headings);
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 640px) {
+            .config-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .config-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .config-item label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .config-item select, .config-item input[type="range"] {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            border-radius: 0.35rem;
+            color: var(--text-primary);
+            padding: 0.5rem;
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .config-item select:focus {
+            border-color: var(--accent-blue);
+        }
+
+        .config-item input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .config-item input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            box-shadow: 0 0 6px var(--accent-blue-glow);
+            transition: transform 0.1s ease;
+        }
+
+        .config-item input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Toggle switches */
+        .toggle-switch-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+        }
+
+        .toggle-switch-wrapper label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .3s;
+            border-radius: 24px;
+            border: 1px solid var(--card-border);
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: var(--text-primary);
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent-blue);
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px var(--accent-blue);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Metadata & Info footer inside card */
+        .panel-metrics {
+            margin-top: auto;
+            border-top: 1px solid var(--card-border);
+            padding-top: 1rem;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .metric-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-family: monospace;
+        }
+
+        /* Keyboard Accessibility shortcuts list */
+        .keyboard-shortcuts {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            background: rgba(0, 0, 0, 0.15);
+            padding: 0.6rem 0.8rem;
+            border-radius: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .keyboard-key {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 0.1rem 0.35rem;
+            border-radius: 0.25rem;
+            font-family: monospace;
+            color: var(--text-primary);
+            font-weight: bold;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.05);
+                opacity: 0.85;
+                text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+            }
+        }
+
+        @keyframes scan {
+            0% {
+                top: 0%;
+            }
+            50% {
+                top: 100%;
+            }
+            100% {
+                top: 0%;
+            }
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 1.5rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--card-border);
+            background: rgba(10, 15, 25, 0.8);
+            margin-top: auto;
+        }
+
+        footer a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Semantic Header -->
+    <header>
+        <div class="header-title">
+            <span class="eye-logo" role="img" aria-label="Glowing Eye Icon">👁️</span>
+            <h1>Vision Assistant</h1>
+        </div>
+        
+        <!-- Live status block -->
+        <div id="service-status" class="model-status-pill" aria-live="polite">
+            <span class="indicator-dot"></span>
+            <span id="model-status-text">Loading Model...</span>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main>
+        
+        <!-- Left Side: Camera or Upload Viewport -->
+        <section class="glass-card camera-panel" aria-label="Input Feed">
+            <div class="controls-row">
+                <h2 style="font-family: var(--font-headings); font-size: 1.15rem; font-weight: 600;">Environment Stream</h2>
+                
+                <!-- Input Mode Toggle -->
+                <div class="btn-group">
+                    <button id="btn-mode-camera" class="btn btn-secondary btn-primary" onclick="switchInputMode('camera')" aria-pressed="true">
+                        📷 Webcam
+                    </button>
+                    <button id="btn-mode-upload" class="btn btn-secondary" onclick="switchInputMode('upload')" aria-pressed="false">
+                        📁 File Upload
+                    </button>
+                </div>
+            </div>
+
+            <!-- Frame viewport -->
+            <div class="viewport-wrapper" id="viewport-container">
+                
+                <!-- 1. Webcam Video Element -->
+                <video id="camera-video" autoplay playsinline muted aria-label="Live camera feed"></video>
+                
+                <!-- Bounding Box Overlay Canvas -->
+                <canvas id="detection-canvas"></canvas>
+                
+                <!-- 2. File Drag & Drop Zone (Hidden by default) -->
+                <div id="file-uploader-zone" class="uploader-zone" style="display: none;" onclick="triggerFileSelect()">
+                    <span class="uploader-icon">📥</span>
+                    <p style="font-weight: 500; margin-bottom: 0.25rem;">Drag & drop image here</p>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary);">or click to browse from device (JPG, PNG)</p>
+                    <input type="file" id="file-input" accept="image/*" onchange="handleFileSelect(event)">
+                </div>
+
+                <!-- Scanning Animation -->
+                <div id="scan-layer" class="scanning-overlay">
+                    <div class="scanning-beam"></div>
+                </div>
+            </div>
+
+            <!-- Camera & Stream Controls -->
+            <div class="controls-row">
+                <div class="btn-group">
+                    <button id="btn-toggle-camera" class="btn btn-danger" onclick="toggleCamera()">
+                        ⏹️ Stop Camera
+                    </button>
+                    <button id="btn-swap-camera" class="btn btn-secondary" onclick="swapCamera()">
+                        🔄 Switch Lens
+                    </button>
+                </div>
+
+                <button id="btn-manual-scan" class="btn btn-primary" onclick="captureAndDetect()">
+                    🔍 Scan Frame Now
+                </button>
+            </div>
+        </section>
+
+        <!-- Right Side: Results & Config Panel -->
+        <section class="glass-card results-panel" aria-label="Results & Accessibility Controls">
+            
+            <!-- Scene Speech Announcement Box -->
+            <div class="announcement-box" role="region" aria-live="assertive">
+                <div class="announcement-title">
+                    <span>🔊</span> Scene Description
+                </div>
+                <div id="description-text" class="description-empty">
+                    Scene will be announced here once you point the camera and click Scan.
+                </div>
+            </div>
+
+            <!-- Detected Class Chip List -->
+            <div>
+                <div class="detections-title">
+                    <span>Detected Objects</span>
+                    <span id="obj-counter" class="detection-counter">0 objects</span>
+                </div>
+                
+                <div id="chips-list" class="chips-container" aria-live="polite">
+                    <!-- Chip elements will be injected dynamically -->
+                </div>
+            </div>
+
+            <!-- Accessibility & Audio Options -->
+            <div class="accessibility-panel">
+                <h3>Audio & Settings</h3>
+                
+                <div class="toggle-switch-wrapper">
+                    <label for="switch-continuous">Continuous Scan (Every 3s)</label>
+                    <span class="switch">
+                        <input type="checkbox" id="switch-continuous" onchange="toggleContinuousScan()">
+                        <span class="slider"></span>
+                    </span>
+                </div>
+                
+                <div class="toggle-switch-wrapper">
+                    <label for="switch-tts-mode">Announce Automatically</label>
+                    <span class="switch">
+                        <input type="checkbox" id="switch-tts-mode" checked>
+                        <span class="slider"></span>
+                    </span>
+                </div>
+
+                <div class="config-grid" style="margin-top: 1rem;">
+                    
+                    <div class="config-item">
+                        <label for="select-tts-engine">Speech Engine</label>
+                        <select id="select-tts-engine" onchange="updateSpeechEngine()">
+                            <option value="server">Server (gTTS High Quality)</option>
+                            <option value="client">Client (Web Speech Local)</option>
+                        </select>
+                    </div>
+
+                    <div class="config-item">
+                        <label for="range-conf-threshold">Min Confidence</label>
+                        <input type="range" id="range-conf-threshold" min="0.1" max="1.0" step="0.05" value="0.5" onchange="updateConfidence(this.value)">
+                        <span id="val-conf-threshold" style="font-size: 0.7rem; color: var(--text-secondary); text-align: right; margin-top: -2px;">0.50</span>
+                    </div>
+                    
+                </div>
+            </div>
+
+            <!-- Sound Cue Helper info & Keyboard access -->
+            <div class="keyboard-shortcuts">
+                <span>⌨️ Accessibility Shortcut: Press</span>
+                <span class="keyboard-key">SPACEBAR</span>
+                <span>or</span>
+                <span class="keyboard-key">ENTER</span>
+                <span>to trigger scanning.</span>
+            </div>
+
+            <!-- Server statistics and diagnostic metrics -->
+            <div class="panel-metrics">
+                <div class="metric-group">
+                    <span>Model Engine</span>
+                    <span id="metric-model" class="metric-value">Loading...</span>
+                </div>
+                <div class="metric-group">
+                    <span>Inference Time</span>
+                    <span id="metric-inference" class="metric-value">0 ms</span>
+                </div>
+                <div class="metric-group">
+                    <span>API Latency</span>
+                    <span id="metric-latency" class="metric-value">0 ms</span>
+                </div>
+            </div>
+            
+        </section>
+
+    </main>
+
+    <!-- Hidden audio element for server-returned TTS audio playing -->
+    <audio id="tts-audio-player" style="display: none;"></audio>
+
+    <!-- Footer -->
+    <footer>
+        Vision Assistant for visually impaired users. Backend powered by FastAPI & OpenCV YOLO.
+    </footer>
+
+    <!-- Frontend logic script -->
+    <script>
+        // State variables
+        const state = {
+            inputMode: 'camera',          // 'camera' or 'upload'
+            cameraActive: false,          // Is webcam stream active
+            stream: null,                 // MediaStream object
+            facingMode: 'environment',    // 'user' (front) or 'environment' (back)
+            deviceId: null,               // Active video source device ID
+            confidenceThreshold: 0.5,     // Current threshold for model
+            continuousScanInterval: null, // Timer object for continuous scan
+            isScanning: false,            // Currently awaiting API response
+            lastAnnouncedText: '',        // Cache last description
+            audioContext: null,           // Web Audio API context for sound cues
+            speechEngine: 'server',       // 'server' (gTTS via API) or 'client' (Web Speech API)
+            lastSuccessfulImage: null     // Store last uploaded image for rescanning on setting change
+        };
+
+        // DOM elements
+        const dom = {
+            video: document.getElementById('camera-video'),
+            canvas: document.getElementById('detection-canvas'),
+            uploaderZone: document.getElementById('file-uploader-zone'),
+            btnToggleCamera: document.getElementById('btn-toggle-camera'),
+            btnSwapCamera: document.getElementById('btn-swap-camera'),
+            btnManualScan: document.getElementById('btn-manual-scan'),
+            btnModeCamera: document.getElementById('btn-mode-camera'),
+            btnModeUpload: document.getElementById('btn-mode-upload'),
+            descriptionText: document.getElementById('description-text'),
+            objCounter: document.getElementById('obj-counter'),
+            chipsList: document.getElementById('chips-list'),
+            switchContinuous: document.getElementById('switch-continuous'),
+            switchTtsMode: document.getElementById('switch-tts-mode'),
+            selectTtsEngine: document.getElementById('select-tts-engine'),
+            rangeConfThreshold: document.getElementById('range-conf-threshold'),
+            valConfThreshold: document.getElementById('val-conf-threshold'),
+            statusText: document.getElementById('model-status-text'),
+            statusPill: document.getElementById('service-status'),
+            metricModel: document.getElementById('metric-model'),
+            metricInference: document.getElementById('metric-inference'),
+            metricLatency: document.getElementById('metric-latency'),
+            audioPlayer: document.getElementById('tts-audio-player'),
+            fileInput: document.getElementById('file-input')
+        };
+
+        // Colors mapped to YOLO classes for drawing bounding boxes
+        const colorPalette = {
+            red: '#EF4444',
+            orange: '#F97316',
+            yellow: '#FBBF24',
+            green: '#10B981',
+            blue: '#3B82F6',
+            purple: '#8B5CF6',
+            pink: '#EC4899',
+            brown: '#78350F',
+            black: '#1F2937',
+            white: '#FFFFFF',
+            gray: '#9CA3AF',
+            colored: '#60A5FA',
+            unknown: '#374151'
+        };
+
+        // Initialize Web Audio API for feedback tones
+        function initAudioContext() {
+            if (!state.audioContext) {
+                state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // Play synthetic beep sound cues (helpful feedback for blind users)
+        function playSoundCue(type) {
+            try {
+                initAudioContext();
+                if (!state.audioContext || state.audioContext.state === 'suspended') {
+                    // Try to resume if blocked by browser autoplay policy
+                    state.audioContext.resume();
+                }
+
+                const ctx = state.audioContext;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                const now = ctx.currentTime;
+
+                if (type === 'start') {
+                    // Quick ascending frequencies (Scanning initiated)
+                    osc.frequency.setValueAtTime(220, now);
+                    osc.frequency.exponentialRampToValueAtTime(440, now + 0.15);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else if (type === 'success') {
+                    // High-pitch double chirp (Objects detected)
+                    osc.frequency.setValueAtTime(587.33, now); // D5
+                    osc.frequency.setValueAtTime(880.00, now + 0.08); // A5
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.setValueAtTime(0.08, now + 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'empty') {
+                    // Short low chime (No objects detected)
+                    osc.frequency.setValueAtTime(329.63, now); // E4
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'error') {
+                    // Dull error buzzer
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(130.81, now); // C3
+                    gain.gain.setValueAtTime(0.05, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                }
+            } catch (e) {
+                console.warn("Audio Context error:", e);
+            }
+        }
+
+        // Fetch API Health on Startup
+        async function fetchSystemHealth() {
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+                
+                if (data.status === 'healthy') {
+                    dom.statusText.textContent = `Online: ${data.configuration.model_type.toUpperCase()}`;
+                    dom.statusPill.style.borderColor = 'var(--accent-green)';
+                    dom.statusPill.style.background = 'rgba(16, 185, 129, 0.15)';
+                    dom.statusPill.style.color = 'var(--accent-green)';
+                    document.querySelector('.indicator-dot').style.backgroundColor = 'var(--accent-green)';
+                    document.querySelector('.indicator-dot').style.boxShadow = '0 0 8px var(--accent-green)';
+                    
+                    state.confidenceThreshold = data.configuration.confidence_threshold;
+                    dom.rangeConfThreshold.value = state.confidenceThreshold;
+                    dom.valConfThreshold.textContent = Number(state.confidenceThreshold).toFixed(2);
+                    
+                    dom.metricModel.textContent = data.configuration.model_type.toUpperCase();
+                } else {
+                    showDegradedStatus("Degraded Model Load Failed");
+                }
+            } catch (e) {
+                showDegradedStatus("Offline");
+                console.error("Error checking backend health:", e);
+            }
+        }
+
+        function showDegradedStatus(message) {
+            dom.statusText.textContent = message;
+            dom.statusPill.style.borderColor = 'var(--danger)';
+            dom.statusPill.style.background = 'rgba(239, 68, 68, 0.15)';
+            dom.statusPill.style.color = 'var(--danger)';
+            document.querySelector('.indicator-dot').style.backgroundColor = 'var(--danger)';
+            document.querySelector('.indicator-dot').style.boxShadow = '0 0 8px var(--danger)';
+            dom.metricModel.textContent = 'UNKNOWN';
+        }
+
+        // Initialize Web Camera Stream
+        async function initCamera() {
+            if (state.cameraActive) return;
+            
+            playSoundCue('start');
+            
+            // Define browser constraints
+            const constraints = {
+                video: {
+                    facingMode: state.facingMode,
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
+                },
+                audio: false
+            };
+
+            try {
+                // Terminate any existing media track
+                stopCameraTracks();
+                
+                state.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                dom.video.srcObject = state.stream;
+                
+                // Track back vs front camera layout mirroring
+                if (state.facingMode === 'environment') {
+                    dom.video.classList.add('back-camera');
+                } else {
+                    dom.video.classList.remove('back-camera');
+                }
+                
+                dom.video.style.display = 'block';
+                state.cameraActive = true;
+                
+                dom.btnToggleCamera.textContent = '⏹️ Stop Camera';
+                dom.btnToggleCamera.className = 'btn btn-danger';
+                dom.btnSwapCamera.disabled = false;
+                dom.btnManualScan.disabled = false;
+                
+                // Match resolution and overlay canvas size on video load
+                dom.video.onloadedmetadata = () => {
+                    resizeCanvas();
+                };
+            } catch (err) {
+                console.error("Camera access error:", err);
+                dom.descriptionText.innerHTML = `<span style="color: var(--danger)">Webcam access denied or unavailable.</span> Please use the "File Upload" mode instead.`;
+                playSoundCue('error');
+            }
+        }
+
+        function stopCameraTracks() {
+            if (state.stream) {
+                state.stream.getTracks().forEach(track => track.stop());
+                state.stream = null;
+            }
+        }
+
+        // Stop camera viewport
+        function toggleCamera() {
+            if (state.cameraActive) {
+                stopCameraTracks();
+                dom.video.style.display = 'none';
+                clearCanvas();
+                state.cameraActive = false;
+                dom.btnToggleCamera.textContent = '▶️ Start Camera';
+                dom.btnToggleCamera.className = 'btn btn-success';
+                dom.btnSwapCamera.disabled = true;
+                dom.btnManualScan.disabled = true;
+                
+                // Disable continuous scan if it was active
+                if (dom.switchContinuous.checked) {
+                    dom.switchContinuous.checked = false;
+                    toggleContinuousScan();
+                }
+            } else {
+                initCamera();
+            }
+        }
+
+        // Cycle camera index (Front vs Back camera)
+        async function swapCamera() {
+            if (!state.cameraActive) return;
+            state.facingMode = (state.facingMode === 'user') ? 'environment' : 'user';
+            initCamera();
+        }
+
+        // Resize detection overlay canvas to map video dimensions
+        function resizeCanvas() {
+            dom.canvas.width = dom.video.clientWidth;
+            dom.canvas.height = dom.video.clientHeight;
+        }
+
+        function clearCanvas() {
+            const ctx = dom.canvas.getContext('2d');
+            ctx.clearRect(0, 0, dom.canvas.width, dom.canvas.height);
+        }
+
+        // Setup Layout View mode (Camera vs File Upload)
+        function switchInputMode(mode) {
+            if (state.inputMode === mode) return;
+            
+            state.inputMode = mode;
+            
+            if (mode === 'camera') {
+                dom.btnModeCamera.classList.add('btn-primary');
+                dom.btnModeUpload.classList.remove('btn-primary');
+                dom.uploaderZone.style.display = 'none';
+                dom.video.style.display = 'block';
+                dom.btnToggleCamera.style.display = 'inline-flex';
+                dom.btnSwapCamera.style.display = 'inline-flex';
+                dom.btnManualScan.textContent = '🔍 Scan Frame Now';
+                initCamera();
+            } else {
+                dom.btnModeUpload.classList.add('btn-primary');
+                dom.btnModeCamera.classList.remove('btn-primary');
+                dom.video.style.display = 'none';
+                dom.uploaderZone.style.display = 'flex';
+                dom.btnToggleCamera.style.display = 'none';
+                dom.btnSwapCamera.style.display = 'none';
+                dom.btnManualScan.textContent = '🔍 Scan Uploaded Image';
+                
+                // Stop webcam
+                stopCameraTracks();
+                state.cameraActive = false;
+                dom.btnSwapCamera.disabled = true;
+                clearCanvas();
+                
+                // Check scanner button state
+                dom.btnManualScan.disabled = !state.lastSuccessfulImage;
+                
+                // Clear continuous scan
+                if (dom.switchContinuous.checked) {
+                    dom.switchContinuous.checked = false;
+                    toggleContinuousScan();
+                }
+            }
+        }
+
+        // Upload Zone click trigger
+        function triggerFileSelect() {
+            dom.fileInput.click();
+        }
+
+        // File Selection handling
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Render upload image onto canvas
+                const img = new Image();
+                img.onload = function() {
+                    state.lastSuccessfulImage = file;
+                    dom.btnManualScan.disabled = false;
+                    
+                    // Display image inside viewport-container by rendering to the canvas
+                    dom.uploaderZone.style.display = 'none';
+                    dom.canvas.style.display = 'block';
+                    
+                    // Match viewport proportions
+                    const container = document.getElementById('viewport-container');
+                    const aspect = img.width / img.height;
+                    
+                    // Adjust canvas size explicitly to image boundaries
+                    dom.canvas.width = container.clientWidth;
+                    dom.canvas.height = container.clientWidth / aspect;
+                    
+                    const ctx = dom.canvas.getContext('2d');
+                    ctx.clearRect(0, 0, dom.canvas.width, dom.canvas.height);
+                    ctx.drawImage(img, 0, 0, dom.canvas.width, dom.canvas.height);
+                    
+                    // Automatically trigger detection on file select
+                    captureAndDetect();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Continuous Scan Toggle
+        function toggleContinuousScan() {
+            if (dom.switchContinuous.checked) {
+                if (!state.cameraActive && state.inputMode === 'camera') {
+                    initCamera();
+                }
+                state.continuousScanInterval = setInterval(() => {
+                    if (!state.isScanning) {
+                        captureAndDetect();
+                    }
+                }, 3000); // Trigger inference call every 3 seconds
+            } else {
+                if (state.continuousScanInterval) {
+                    clearInterval(state.continuousScanInterval);
+                    state.continuousScanInterval = null;
+                }
+            }
+        }
+
+        // Speak using Client local browser engine (SpeechSynthesis)
+        function speakClientLocal(text) {
+            if (!window.speechSynthesis) return;
+            
+            // Stop speaking current audio
+            window.speechSynthesis.cancel();
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            
+            // Try to find a standard English voice
+            const voices = window.speechSynthesis.getVoices();
+            const engVoice = voices.find(v => v.lang.startsWith('en'));
+            if (engVoice) utterance.voice = engVoice;
+            
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Trigger Audio player using server returned base64 bytes
+        function speakServerAudio(base64Audio) {
+            if (!base64Audio) return;
+            
+            // Stop any browser speech
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
+            
+            dom.audioPlayer.src = `data:audio/mp3;base64,${base64Audio}`;
+            dom.audioPlayer.play().catch(e => {
+                console.warn("Audio autoplay blocked by browser context. User gesture required.", e);
+                // Fallback to client synthesis if audio playback crashes or is blocked
+                speakClientLocal(state.lastAnnouncedText);
+            });
+        }
+
+        // Triggers Speech output based on select configs
+        function announceScene(text, base64Audio) {
+            state.lastAnnouncedText = text;
+            
+            if (!dom.switchTtsMode.checked || !text) return;
+            
+            if (state.speechEngine === 'server' && base64Audio) {
+                speakServerAudio(base64Audio);
+            } else {
+                speakClientLocal(text);
+            }
+        }
+
+        // Capture Frame from canvas/video and send to API
+        async function captureAndDetect() {
+            if (state.isScanning) return;
+            state.isScanning = true;
+            
+            // Show scanning UI effects
+            document.getElementById('scan-layer').style.display = 'block';
+            playSoundCue('start');
+            
+            const apiStartTime = Date.now();
+            
+            try {
+                let blob;
+                
+                if (state.inputMode === 'camera') {
+                    // Extract frame from live HTML5 Video tag
+                    const captureCanvas = document.createElement('canvas');
+                    captureCanvas.width = dom.video.videoWidth || 640;
+                    captureCanvas.height = dom.video.videoHeight || 480;
+                    const ctx = captureCanvas.getContext('2d');
+                    
+                    // Mirror capture coordinates if using mirrored camera
+                    if (state.facingMode === 'user') {
+                        ctx.translate(captureCanvas.width, 0);
+                        ctx.scale(-1, 1);
+                    }
+                    
+                    ctx.drawImage(dom.video, 0, 0, captureCanvas.width, captureCanvas.height);
+                    
+                    // Capture as blob
+                    blob = await new Promise(resolve => captureCanvas.toBlob(resolve, 'image/jpeg', 0.85));
+                } else {
+                    // Use static uploaded file
+                    blob = state.lastSuccessfulImage;
+                }
+                
+                if (!blob) {
+                    throw new Error("No image data to send");
+                }
+                
+                // Formulate multipart data payload
+                const formData = new FormData();
+                formData.append('file', blob, 'frame.jpg');
+                
+                // Call detection endpoint
+                const response = await fetch(`/api/detect?conf_threshold=${state.confidenceThreshold}&generate_audio=${dom.switchTtsMode.checked}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errDetail = await response.json();
+                    throw new Error(errDetail.detail || "API processing failure");
+                }
+                
+                const result = await response.json();
+                const latency = Date.now() - apiStartTime;
+                
+                // Update stats and telemetry metrics
+                dom.metricLatency.textContent = `${latency} ms`;
+                dom.metricInference.textContent = `${result.metrics.inference_time_ms} ms`;
+                
+                // Handle results
+                processDetectionResults(result);
+                
+            } catch (err) {
+                console.error("Scanning process crashed:", err);
+                dom.descriptionText.innerHTML = `<span style="color: var(--danger)">Scanning failed: ${err.message}</span>`;
+                playSoundCue('error');
+            } finally {
+                // Clear animations
+                state.isScanning = false;
+                document.getElementById('scan-layer').style.display = 'none';
+            }
+        }
+
+        // Process API returns, draw boxes, and update descriptions
+        function processDetectionResults(data) {
+            // 1. Text description announcement
+            if (data.description) {
+                dom.descriptionText.textContent = data.description;
+                dom.descriptionText.classList.remove('description-empty');
+                
+                // Play audio description
+                announceScene(data.description, data.audio);
+            } else {
+                dom.descriptionText.textContent = "No objects detected.";
+                dom.descriptionText.classList.add('description-empty');
+                playSoundCue('empty');
+            }
+            
+            // 2. Objects Count chip indicator update
+            const totalObjects = data.detections ? data.detections.length : 0;
+            dom.objCounter.textContent = `${totalObjects} object${totalObjects === 1 ? '' : 's'}`;
+            
+            dom.chipsList.innerHTML = '';
+            
+            if (totalObjects > 0) {
+                playSoundCue('success');
+                
+                data.detections.forEach(obj => {
+                    // Create visual chip elements
+                    const chip = document.createElement('div');
+                    chip.className = 'chip';
+                    
+                    const dot = document.createElement('span');
+                    dot.className = 'chip-color-dot';
+                    dot.style.backgroundColor = colorPalette[obj.color] || colorPalette.unknown;
+                    
+                    const labelText = document.createTextNode(`${obj.label} (${Math.round(obj.confidence * 100)}%)`);
+                    
+                    chip.appendChild(dot);
+                    chip.appendChild(labelText);
+                    dom.chipsList.appendChild(chip);
+                });
+            }
+            
+            // 3. Draw bounding boxes on screen
+            renderBoundingBoxes(data.detections);
+        }
+
+        // Draw boxes on overlay viewport canvas
+        function renderBoundingBoxes(detections) {
+            clearCanvas();
+            if (!detections || detections.length === 0) return;
+            
+            const ctx = dom.canvas.getContext('2d');
+            
+            // Determine video proportions to scale detections coordinates correctly
+            let viewWidth = dom.canvas.width;
+            let viewHeight = dom.canvas.height;
+            
+            // Check original image/video constraints sent from backend
+            // By default, YOLO uses coordinates relative to backend resized frame sizes
+            let origWidth = 640;
+            let origHeight = 480;
+            
+            if (state.inputMode === 'camera' && state.stream) {
+                const settings = state.stream.getVideoTracks()[0].getSettings();
+                origWidth = settings.width || 640;
+                origHeight = settings.height || 480;
+            } else if (state.inputMode === 'upload' && state.lastSuccessfulImage) {
+                // If using upload, aspect mapping should already be loaded directly
+                origWidth = viewWidth;
+                origHeight = viewHeight;
+            }
+            
+            const scaleX = viewWidth / origWidth;
+            const scaleY = viewHeight / origHeight;
+            
+            detections.forEach(det => {
+                let [x, y, w, h] = det.box;
+                
+                // Coordinate scaling mapping
+                let drawX = x * scaleX;
+                let drawY = y * scaleY;
+                let drawW = w * scaleX;
+                let drawH = h * scaleY;
+                
+                // If front camera, invert the x coordinates because the video is mirrored on web view
+                if (state.inputMode === 'camera' && state.facingMode === 'user') {
+                    drawX = viewWidth - (drawX + drawW);
+                }
+                
+                const color = colorPalette[det.color] || '#00FF00';
+                
+                // Draw Box borders
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                ctx.strokeRect(drawX, drawY, drawW, drawH);
+                
+                // Draw tag labels background
+                ctx.fillStyle = color;
+                ctx.font = '500 13px Inter, sans-serif';
+                const tagText = `${det.color} ${det.label}`;
+                const textWidth = ctx.measureText(tagText).width;
+                
+                ctx.fillRect(drawX, drawY - 22, textWidth + 14, 22);
+                
+                // Draw text labels
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillText(tagText, drawX + 7, drawY - 6);
+            });
+        }
+
+        // Accessibility Settings Adjustments
+        function updateSpeechEngine() {
+            state.speechEngine = dom.selectTtsEngine.value;
+            // Warm up client audio synthesis voices if client selected
+            if (state.speechEngine === 'client' && window.speechSynthesis) {
+                window.speechSynthesis.getVoices();
+            }
+        }
+
+        function updateConfidence(val) {
+            state.confidenceThreshold = parseFloat(val);
+            dom.valConfThreshold.textContent = state.confidenceThreshold.toFixed(2);
+            
+            // If upload mode has an image, automatically rescan with new settings
+            if (state.inputMode === 'upload' && state.lastSuccessfulImage) {
+                captureAndDetect();
+            }
+        }
+
+        // Window resizing listener
+        window.addEventListener('resize', () => {
+            if (state.cameraActive) {
+                resizeCanvas();
+            }
+        });
+
+        // Add physical spacebar / enter keyboard listeners for blind accessibility triggers
+        window.addEventListener('keydown', (e) => {
+            // Trigger scan on Spacebar or Enter when camera is running
+            if ((e.code === 'Space' || e.code === 'Enter') && state.cameraActive && !state.isScanning) {
+                // Prevent scrolling page on spacebar
+                e.preventDefault();
+                captureAndDetect();
+            }
+        });
+
+        // Initialize App on load
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchSystemHealth();
+            initCamera();
+            updateSpeechEngine();
+        });
+    </script>
+</body>
+</html>

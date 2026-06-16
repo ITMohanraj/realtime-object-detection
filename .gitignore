@@ -1,0 +1,22 @@
+# .gitignore
+# Ignore bulky YOLO weights (downloaded dynamically during build)
+*.weights
+
+# Python cache & build files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Server log files
+*.log
+server_test_stdout.log
+server_test_stderr.log
+
+# Temporary test images
+dummy_test.jpg
+dummy_test.png

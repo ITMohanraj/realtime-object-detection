@@ -1,0 +1,25 @@
+# docker-compose.yml
+# Multi-container orchestrator configuration for local testing
+
+version: '3.8'
+
+services:
+  vision-assistant:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vision-assistant-server
+    ports:
+      - "10000:10000"
+    environment:
+      - MODEL_TYPE=yolov3-tiny
+      - DOWNLOAD_FULL_YOLO=false
+      - CONFIDENCE_THRESHOLD=0.5
+      - NMS_THRESHOLD=0.4
+    restart: unless-stopped
+    volumes:
+      # Optional: mount cache for weights to prevent re-downloads when rebuilding
+      - weights-cache:/app/weights_cache
+
+volumes:
+  weights-cache:
