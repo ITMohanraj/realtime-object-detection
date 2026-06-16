@@ -2,6 +2,13 @@
 import os
 import sys
 import urllib.request
+import ssl
+
+# Bypass SSL verification to avoid potential certificate failures in thin container environments
+try:
+    ssl._create_default_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
 
 # Configuration URLs
 YOLO_TINY_CFG_URL = "https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3-tiny.cfg"
