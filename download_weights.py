@@ -11,11 +11,11 @@ except AttributeError:
     pass
 
 # Configuration URLs
-YOLO_TINY_CFG_URL = "https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3-tiny.cfg"
-YOLO_TINY_WEIGHTS_URL = "https://pjreddie.com/media/files/yolov3-tiny.weights"
-YOLO_FULL_CFG_URL = "https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3.cfg"
-YOLO_FULL_WEIGHTS_URL = "https://pjreddie.com/media/files/yolov3.weights"
-COCO_NAMES_URL = "https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names"
+YOLO_TINY_CFG_URL = "https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov3-tiny.cfg"
+YOLO_TINY_WEIGHTS_URL = "https://github.com/AlexeyAB/darknet/releases/download/yolov4.0/yolov3-tiny.weights"
+YOLO_FULL_CFG_URL = "https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov3.cfg"
+YOLO_FULL_WEIGHTS_URL = "https://github.com/AlexeyAB/darknet/releases/download/yolov4.0/yolov3.weights"
+COCO_NAMES_URL = "https://raw.githubusercontent.com/AlexeyAB/darknet/master/data/coco.names"
 
 def reporthook(blocknum, blocksize, totalsize):
     readsofar = blocknum * blocksize
