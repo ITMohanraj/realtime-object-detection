@@ -3,6 +3,13 @@ import base64
 import logging
 import os
 import time
+import ssl
+
+# Bypass SSL verification to avoid potential certificate failures in thin container environments
+try:
+    ssl._create_default_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
 import cv2
 import numpy as np
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query

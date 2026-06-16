@@ -3,7 +3,14 @@ import tempfile
 import time
 import os
 import io
+import ssl
 from gtts import gTTS
+
+# Bypass SSL verification to avoid potential certificate failures in thin container environments
+try:
+    ssl._create_default_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
 
 try:
     import pygame
