@@ -6,7 +6,8 @@ FROM python:3.10-slim
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     DEBIAN_FRONTEND=noninteractive \
-    MODEL_TYPE=yolov3
+    MODEL_TYPE=yolov8-onnx \
+    MODEL_NAME=yolov8s.onnx
 
 # Install system dependencies required for OpenCV
 RUN apt-get update && apt-get install -y --no-install-recommends \

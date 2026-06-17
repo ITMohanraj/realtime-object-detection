@@ -2,8 +2,8 @@
 import os
 
 # YOLO Configuration
-MODEL_TYPE = os.environ.get("MODEL_TYPE", "yolov8").lower()
-MODEL_NAME = os.environ.get("MODEL_NAME", "yolov8s")
+MODEL_TYPE = os.environ.get("MODEL_TYPE", "yolov8-onnx").lower()
+MODEL_NAME = os.environ.get("MODEL_NAME", "yolov8s.onnx")
 
 if MODEL_TYPE == "yolov3":
     YOLO_CFG = os.environ.get("YOLO_CFG", "yolov3.cfg")
@@ -11,6 +11,9 @@ if MODEL_TYPE == "yolov3":
 elif MODEL_TYPE == "yolov3-tiny":
     YOLO_CFG = os.environ.get("YOLO_CFG", "yolov3-tiny.cfg")
     YOLO_WEIGHTS = os.environ.get("YOLO_WEIGHTS", "yolov3-tiny.weights")
+elif MODEL_TYPE == "yolov8-onnx":
+    YOLO_CFG = ""
+    YOLO_WEIGHTS = os.environ.get("YOLO_WEIGHTS", "yolov8s.onnx")
 else:
     # Use empty/None config paths for non-Darknet models
     YOLO_CFG = os.environ.get("YOLO_CFG", "")

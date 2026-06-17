@@ -12,11 +12,11 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: MODEL_TYPE
-        value: yolov3
+        value: yolov8-onnx
       - key: MODEL_NAME
-        value: yolov3
+        value: yolov8s.onnx
       - key: DOWNLOAD_FULL_YOLO
-        value: "true"
+        value: "false"
       - key: CONFIDENCE_THRESHOLD
         value: "0.35"
       - key: NMS_THRESHOLD

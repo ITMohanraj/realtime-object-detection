@@ -2,7 +2,6 @@
 import cv2
 import numpy as np
 import config
-from config import YOLO_CFG, YOLO_WEIGHTS, COCO_NAMES, INPUT_SIZE, MODEL_NAME
 
 try:
     import torch
@@ -23,9 +22,13 @@ class ObjectDetector:
             config.MODEL_TYPE in ["yolov8", "yolov11", "yolo11", "ultralytics"] or
             "yolov8" in config.MODEL_NAME or
             "yolo11" in config.MODEL_NAME
-        )
+        ) and config.MODEL_TYPE != "yolov8-onnx"
         
-        if is_ultralytics:
+        if config.MODEL_TYPE == "yolov8-onnx":
+            self.net = cv2.dnn.readNetFromONNX(config.YOLO_WEIGHTS)
+            self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+            self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+        elif is_ultralytics:
             if not HAS_TORCH:
                 raise RuntimeError("PyTorch (torch) is not installed. Cannot load Ultralytics YOLO model.")
             try:
@@ -37,18 +40,18 @@ class ObjectDetector:
                 self.model.to(self.device)
             except Exception as e:
                 raise RuntimeError(f"Failed to load Ultralytics YOLO model: {e}")
-        elif MODEL_NAME.startswith("yolov5"):
+        elif config.MODEL_NAME.startswith("yolov5"):
             if not HAS_TORCH:
                 raise RuntimeError("PyTorch (torch) is not installed. Cannot load YOLOv5 model.")
             try:
                 # Load Ultralytics YOLOv5 model (PyTorch Hub fallback)
-                self.model = torch.hub.load('ultralytics/yolov5', MODEL_NAME, pretrained=True)
+                self.model = torch.hub.load('ultralytics/yolov5', config.MODEL_NAME, pretrained=True)
                 self.model.to(self.device)
             except Exception as e:
                 raise RuntimeError(f"Failed to load YOLOv5 via PyTorch Hub: {e}")
         else:
             # Legacy OpenCV DNN loading
-            self.net = cv2.dnn.readNetFromDarknet(YOLO_CFG, YOLO_WEIGHTS)
+            self.net = cv2.dnn.readNetFromDarknet(config.YOLO_CFG, config.YOLO_WEIGHTS)
             self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
             self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
         
@@ -57,10 +60,10 @@ class ObjectDetector:
             if hasattr(self.model, 'names') and isinstance(self.model.names, dict):
                 self.classes = [self.model.names[i] for i in sorted(self.model.names.keys())]
             else:
-                with open(COCO_NAMES, "r") as f:
+                with open(config.COCO_NAMES, "r") as f:
                     self.classes = f.read().strip().split("\n")
         else:
-            with open(COCO_NAMES, "r") as f:
+            with open(config.COCO_NAMES, "r") as f:
                 self.classes = f.read().strip().split("\n")
         
         # Random colors for bounding boxes
@@ -97,7 +100,58 @@ class ObjectDetector:
             ycrcb_eq = cv2.merge((y_eq, cr, cb))
             image = cv2.cvtColor(ycrcb_eq, cv2.COLOR_YCrCb2BGR)
         
-        if hasattr(self, 'model'):
+        if config.MODEL_TYPE == "yolov8-onnx":
+            blob = cv2.dnn.blobFromImage(
+                image,
+                1/255.0,
+                (640, 640),
+                swapRB=True,
+                crop=False
+            )
+            self.net.setInput(blob)
+            outputs = self.net.forward()
+            
+            output = outputs[0]
+            if len(output.shape) == 3:
+                output = output[0]
+            output = output.T # Transpose to (8400, 84)
+            
+            # Vectorized NumPy filtering for massive speedup
+            boxes_raw = output[:, 0:4]
+            scores_raw = output[:, 4:]
+            
+            class_ids_arr = np.argmax(scores_raw, axis=1)
+            confidences_arr = np.max(scores_raw, axis=1)
+            
+            mask = confidences_arr > confidence_threshold
+            filtered_boxes = boxes_raw[mask]
+            filtered_confidences = confidences_arr[mask]
+            filtered_class_ids = class_ids_arr[mask]
+            
+            boxes = []
+            confidences = []
+            class_ids = []
+            
+            x_factor = width / 640.0
+            y_factor = height / 640.0
+            
+            for box, conf, cls_id in zip(filtered_boxes, filtered_confidences, filtered_class_ids):
+                x_center, y_center, w, h = box
+                left = int((x_center - w / 2) * x_factor)
+                top = int((y_center - h / 2) * y_factor)
+                box_width = int(w * x_factor)
+                box_height = int(h * y_factor)
+                
+                boxes.append([left, top, box_width, box_height])
+                confidences.append(float(conf))
+                class_ids.append(int(cls_id))
+                    
+            if boxes:
+                indexes = cv2.dnn.NMSBoxes(boxes, confidences, confidence_threshold, nms_threshold)
+                indexes = indexes.flatten() if len(indexes) > 0 else []
+            else:
+                indexes = []
+        elif hasattr(self, 'model'):
             # Check if it is an Ultralytics model (e.g. YOLOv8 / YOLOv11)
             if hasattr(self.model, 'predict'):
                 results = self.model(image, conf=confidence_threshold, iou=nms_threshold, verbose=False)
@@ -128,7 +182,7 @@ class ObjectDetector:
             blob = cv2.dnn.blobFromImage(
                 image,
                 1/255.0,
-                INPUT_SIZE,
+                config.INPUT_SIZE,
                 swapRB=True,
                 crop=False
             )
